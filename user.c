@@ -6,6 +6,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <math.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
@@ -17,7 +18,7 @@ void shmInitialize(key_t, key_t, key_t);
 void request();
 void release();
 
-ResourceClass *array;
+ResourceClass *resourceArray;
 Clock *sys;
 int *resourceData;
 
@@ -70,7 +71,7 @@ void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
     resourceID = shmget(keyResourceData, sizeof(int)*2, PERMS | IPC_CREAT);
     
     sys = (Clock *) shmat(clockID, 0, 0);
-    array = (ResourceClass *) shmat(classID, 0, 0);
+    resourceArray = (ResourceClass *) shmat(classID, 0, 0);
     resourceData = (int *) shmat(resourceID, 0, 0);
 
 }
@@ -90,9 +91,9 @@ void request()
         {
             if(requests>=claims)
             return;
-            else if(array[k].instance[l].id!=0)
+            else if(resourceArray[k].instance[l].id!=0)
             {
-                enqueue(array[k].instance[l].pid, thisPID);
+                enqueue(resourceArray[k].instance[l].pid, thisPID);
                 fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
                 requests++;
             }
@@ -107,22 +108,22 @@ void request()
         if (requests>=claims)
             return;
         //not shareable, but has been assigned
-        else if(array[i].sharedStatus == false && array[i].beenShared == true)
+        else if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == true)
         {   
             continue;
         }
         //not shareable, but has not been assigned
-        else if(array[i].sharedStatus == false && array[i].beenShared == false)
+        else if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == false)
         {
-            array[i].beenShared = true;
+            resourceArray[i].beenShared = true;
             //loop through instances in resource class
             for(int j = 0; j<10; j++)
             {   
                 if(requests>=claims)
                 return;
-                else if(array[i].instance[j].id!=0)
+                else if(resourceArray[i].instance[j].id!=0)
                 {
-                    enqueue(array[i].instance[j].pid, thisPID);
+                    enqueue(resourceArray[i].instance[j].pid, thisPID);
                     fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, j, i);
                     requests++;
                 }
@@ -141,9 +142,9 @@ void release()
     {
         for(int l = 0; l<10; l++)
         {
-            if(array[k].instance[l].pid->array[array[k].instance[l].pid->front] == thisPID)
+            if(resourceArray[k].instance[l].pid->array[resourceArray[k].instance[l].pid->front] == thisPID)
             {
-                thisPID = dequeue(array[k].instance[l].pid);
+                thisPID = dequeue(resourceArray[k].instance[l].pid);
                 fprintf(log, "Process %d has finished using resource %d in class %d.\n", thisPID, l, k);
             }
             else

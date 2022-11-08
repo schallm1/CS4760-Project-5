@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
@@ -20,7 +21,7 @@ void shmInitialize(key_t, key_t, key_t);
 void initializeClasses();
 void shmDelete();
 
-ResourceClass *array;
+ResourceClass *resourceArray;
 Clock *sys;
 int *resourceData;
 
@@ -82,7 +83,7 @@ void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 
 
     sys = (Clock *) shmat(clockID, 0, 0);
-    array = (ResourceClass *) shmat(classID, 0, 0);
+    resourceArray = (ResourceClass *) shmat(classID, 0, 0);
     resourceData = (int *) shmat(resourceID, 0, 0);
 
     //number of resource instances
@@ -98,7 +99,7 @@ void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 void shmDelete()
 {
     shmdt(sys);
-    shmdt(array);
+    shmdt(resourceArray);
     shmdt(resourceData);
     shmctl(clockID, IPC_RMID, NULL);
     shmctl(classID, IPC_RMID, NULL);
@@ -111,41 +112,41 @@ void initializeClasses()
     //loop through shareable resource classes
     for(int i =0; i < resourceData[1]; i++)
     {
-        array[i].sharedStatus = true;
-        array[i].beenShared = false;
+        resourceArray[i].sharedStatus = true;
+        resourceArray[i].beenShared = false;
 
         //populate each resource class with random number of instances
         int pop = (rand() % 10) + 1;
         for(int j = 0; j< pop; j++)
         {
-            array[i].instance[j].id = j;
-            array[i].instance[j].pid = createQueue(18);
+            resourceArray[i].instance[j].id = j;
+            resourceArray[i].instance[j].pid = createQueue(18);
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values
         for(int k = pop; k<10; k++)
         {
-            array[i].instance[k].id = 0;
+            resourceArray[i].instance[k].id = 0;
         }
     }
     //loop through non shareable resource classes
     for(int x = resourceData[1]; x <20; x++)
     {
-        array[x].sharedStatus = false;
-        array[x].beenShared = false;
+        resourceArray[x].sharedStatus = false;
+        resourceArray[x].beenShared = false;
 
         //populate each resource class with random number of instances
         int pops = (rand() % 10) + 1;
         for(int y = 0; y < pops; y++)
         {
-            array[x].instance[y].id = y;
-            array[x].instance[y].pid = createQueue(18);
+            resourceArray[x].instance[y].id = y;
+            resourceArray[x].instance[y].pid = createQueue(18);
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values;
         for(int z = pops; z<10; z++)
         {
-            array[x].instance[z].id = 0;
+            resourceArray[x].instance[z].id = 0;
         }
     }
 
