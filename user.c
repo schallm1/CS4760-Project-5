@@ -13,18 +13,17 @@
 #include <sys/msg.h>
 #include "system.c"
 
-void shmInitialize(key_t, key_t, key_t, key_t);
+void shmInitialize(key_t, key_t, key_t);
 void request();
 void release();
 
 ResourceClass *array;
 Clock *sys;
 int *resourceData;
-message *m;
+
 int clockID;
 int classID;
 int resourceID;
-int mID;
 int claims;
 int none = 0;
 
@@ -39,12 +38,11 @@ int main(int argc, char *argv[])
     key_t keyClock = 4950;
     key_t keyClasses = 4951;
     key_t keyResourceData = 4952;
-    key_t keyMsg = 4953;
 
     //sem declaration
     sem_t *sem = sem_open ("/sem", O_CREAT, 0777, 1 );
 
-    shmInitialize(keyClock, keyClasses, keyResourceData, keyMsg);
+    shmInitialize(keyClock, keyClasses, keyResourceData);
 
     int place = (rand() % resourceData[1]) + 1;
     claims = place;
@@ -53,27 +51,24 @@ int main(int argc, char *argv[])
     int action = (rand() % bound) +1;
     while(1)
     {
-        msgrcv(mID, &m, sizeof(m), thisPID, 0);
+        sem_wait(sem);
         localClock[1] += action;
         request();
-        sleep(10);
         release();
-        m->type = 0;
+        sem_post(sem);
         break;
     }
     fprintf(log, "Process %d is now terminating.\n", thisPID);
-    msgsnd(mID, &m, sizeof(m), 0);
     exit(0);
 
 }
 
-void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData, key_t keyMsg)
+void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 {
     clockID = shmget(keyClock, sizeof(Clock), PERMS | IPC_CREAT);
     classID = shmget(keyClasses, 20*sizeof(ResourceClass), PERMS | IPC_CREAT);
     resourceID = shmget(keyResourceData, sizeof(int)*2, PERMS | IPC_CREAT);
-    mID = msgget(keyMsg, IPC_CREAT | 0666 );
-
+    
     sys = (Clock *) shmat(clockID, 0, 0);
     array = (ResourceClass *) shmat(classID, 0, 0);
     resourceData = (int *) shmat(resourceID, 0, 0);

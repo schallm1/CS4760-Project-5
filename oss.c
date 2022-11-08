@@ -16,38 +16,40 @@
 #include "system.c"
 
 //prototype
-void shmInitialize(key_t, key_t, key_t, key_t);
+void shmInitialize(key_t, key_t, key_t);
 void initializeClasses();
 void shmDelete();
 
 ResourceClass *array;
 Clock *sys;
 int *resourceData;
-message m;
+
 int clockID;
 int classID;
 int resourceID;
-int mID;
+
 
 
 int main()
 {
     pid_t pid = getpid();
+    pid_t wpid;
     //logfile
     FILE *log = fopen("logfile", "w");
     //key declarations
     key_t keyClock = 4950;
     key_t keyClasses = 4951;
     key_t keyResourceData = 4952;
-    key_t keyMsg = 4953;
+    //sem declaration
+    sem_t *sem = sem_open ("/sem", O_CREAT, 0777, 1);
 
     //variables
     int processCount = 0;
-    m.type = 0;
+    int status = 0;
 
     srand(time(0));
 
-    shmInitialize(keyClock, keyClasses, keyResourceData, keyMsg);
+    shmInitialize(keyClock, keyClasses, keyResourceData);
     initializeClasses();
         sys->clock[1]+= (rand() % 500) +1;
         if(sys->clock[1] >= 1000)
@@ -55,14 +57,13 @@ int main()
             sys->clock[0] += (sys->clock[1] % 1000);
             sys->clock[1] = (sys->clock[1] - ((sys->clock[1] % 1000) * 1000));
         }
-        msgsnd(mID, &m, sizeof(m), 0);
         if((pid = fork()) == 0)
         {
             execl("./user", "user", NULL);
         }
         fprintf(log, "Process %d has been dispatched for execution.\n", pid);
 
-    msgrcv(mID, &m, sizeof(m), pid, 0);
+    while ((wpid = wait(&status)) > 0);
     shmDelete();
     fprintf(log, "Parent process is now terminating.\n");
     exit(0);
@@ -73,12 +74,11 @@ int main()
 
 }
 
-void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData, key_t keyMsg)
+void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 {
     clockID = shmget(keyClock, sizeof(Clock), PERMS | IPC_CREAT);
     classID = shmget(keyClasses, 20*sizeof(ResourceClass), PERMS | IPC_CREAT);
     resourceID = shmget(keyResourceData, sizeof(int)*2, PERMS | IPC_CREAT);
-    mID = msgget(keyMsg, IPC_CREAT | 0666 );
 
 
     sys = (Clock *) shmat(clockID, 0, 0);
@@ -103,7 +103,6 @@ void shmDelete()
     shmctl(clockID, IPC_RMID, NULL);
     shmctl(classID, IPC_RMID, NULL);
     shmctl(resourceID, IPC_RMID, NULL);
-    msgctl(mID, IPC_RMID, NULL);
 }
 
 void initializeClasses()
