@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <semaphore.h>
 #include <stdbool.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <math.h>
 #include <time.h>
+#include <errno.h>
 #include <sys/time.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <sys/msg.h>
 #include <sys/stat.h>
+#include <sys/sem.h>
 #include "system.c"
 
 //prototype
@@ -28,6 +29,9 @@ int *resourceData;
 int clockID;
 int classID;
 int resourceID;
+int semAddress;
+
+#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 
 
@@ -41,8 +45,15 @@ int main()
     key_t keyClock = 4950;
     key_t keyClasses = 4951;
     key_t keyResourceData = 4952;
+    key_t keySem = 4953;
     //sem declaration
-    sem_t *sem = sem_open ("/sem", O_CREAT, 0777, 1);
+    union semun arg;
+    arg.val = 1;
+    int sem;
+    perror("before sem:");
+    semAddress = semget(keySem, 1, IPC_CREAT | PERMS);
+    perror("sem: ");
+    sem = semctl(semAddress, 0, SETVAL, arg.val);
 
     //variables
     int processCount = 0;
@@ -66,7 +77,9 @@ int main()
 
     while ((wpid = wait(&status)) > 0);
     shmDelete();
+    semctl(semAddress, 0, IPC_RMID);
     fprintf(log, "Parent process is now terminating.\n");
+    fclose(log);
     exit(0);
 
 

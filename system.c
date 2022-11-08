@@ -5,7 +5,6 @@
 #define SYSTEM_H
 
 #define MAX 10
-#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 
 typedef struct

@@ -10,14 +10,22 @@
 #include <sys/time.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
+#include <sys/wait.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/msg.h>
+#include <sys/sem.h>
 #include "system.c"
+
+#define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 void shmInitialize(key_t, key_t, key_t);
 void request();
 void release();
+void semWait();
+void semPost();
 
+static struct sembuf sop;
 ResourceClass *resourceArray;
 Clock *sys;
 int *resourceData;
@@ -27,6 +35,7 @@ int classID;
 int resourceID;
 int claims;
 int none = 0;
+int semAddress;
 
 int main(int argc, char *argv[])
 {
@@ -39,9 +48,10 @@ int main(int argc, char *argv[])
     key_t keyClock = 4950;
     key_t keyClasses = 4951;
     key_t keyResourceData = 4952;
+    key_t keySem = 4953;
 
     //sem declaration
-    sem_t *sem = sem_open ("/sem", O_CREAT, 0777, 1 );
+    semAddress = semget(keySem, 1, PERMS | IPC_CREAT);
 
     shmInitialize(keyClock, keyClasses, keyResourceData);
 
@@ -50,16 +60,18 @@ int main(int argc, char *argv[])
     unsigned int localClock[2] = {sys->clock[0], sys->clock[1]};
     int bound = 400;
     int action = (rand() % bound) +1;
+
     while(1)
     {
-        sem_wait(sem);
+        semWait();
         localClock[1] += action;
         request();
         release();
-        sem_post(sem);
+        semPost();
         break;
     }
     fprintf(log, "Process %d is now terminating.\n", thisPID);
+    fclose(log);
     exit(0);
 
 }
@@ -87,20 +99,21 @@ void request()
         if (requests>=claims)
         return;
         else
-        for(int l = 0; l<10; l++)
         {
-            if(requests>=claims)
-            return;
-            else if(resourceArray[k].instance[l].id!=0)
+            for(int l = 0; l<10; l++)
             {
-                enqueue(resourceArray[k].instance[l].pid, thisPID);
-                fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
-                requests++;
+                if(requests>=claims)
+                return;
+                else if(resourceArray[k].instance[l].id!=0)
+                {
+                    enqueue(resourceArray[k].instance[l].pid, thisPID);
+                    fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
+                    requests++;
+                }
+                else
+                break;
             }
-            else
-            break;
         }
-        
     }
     for(int i = resourceData[1]; i <20; i++)
     {
@@ -153,4 +166,19 @@ void release()
         
     }
 
+}
+
+void semWait()
+{
+    sop.sem_num = 1;
+	sop.sem_op = -1;
+	sop.sem_flg = 0;
+    semop(semAddress, &sop, 1);
+}
+
+void semPost() {
+	sop.sem_num = 1;
+	sop.sem_op = 1;
+	sop.sem_flg = 0;
+	semop(semAddress, &sop, 1);
 }
