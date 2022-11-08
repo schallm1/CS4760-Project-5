@@ -47,13 +47,11 @@ int main()
     key_t keyResourceData = 4952;
     key_t keySem = 4953;
     //sem declaration
-    union semun arg;
-    arg.val = 1;
     int sem;
     perror("before sem:");
     semAddress = semget(keySem, 1, IPC_CREAT | PERMS);
     perror("sem: ");
-    sem = semctl(semAddress, 0, SETVAL, arg.val);
+    sem = semctl(semAddress, 0, SETVAL, 1);
 
     //variables
     int processCount = 0;
