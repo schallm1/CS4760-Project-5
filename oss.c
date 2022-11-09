@@ -132,7 +132,7 @@ void initializeClasses()
         int pop = (rand() % 10) + 1;
         for(int j = 0; j< pop; j++)
         {
-            resourceArray[i].instance[j].id = j;
+            resourceArray[i].instance[j].id = j+1;
             resourceArray[i].instance[j].pid = createQueue(18);
             resourceData[0]++;
         }
