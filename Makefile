@@ -12,4 +12,5 @@ clean:
 	rm -f oss
 	rm -f user
 	rm -f logfile
+	rm -f logfile1
 	rm -r -d *.dSYM
