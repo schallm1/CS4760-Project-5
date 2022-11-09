@@ -131,7 +131,7 @@ void initializeClasses()
         for(int j = 0; j< pop; j++)
         {
             resourceArray[i].instance[j].id = j+1;
-            resourceArray[i].instance[j].pid = createQueue(18);
+            resourceArray[i].instance[j].pid = createQueue();
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values
@@ -151,7 +151,7 @@ void initializeClasses()
         for(int y = 0; y < pops; y++)
         {
             resourceArray[x].instance[y].id = y;
-            resourceArray[x].instance[y].pid = createQueue(18);
+            resourceArray[x].instance[y].pid = createQueue();
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values;

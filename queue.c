@@ -13,15 +13,15 @@ typedef struct {
 // function to create a queue
 // of given capacity.
 // It initializes size of queue as 0
-Queue* createQueue(unsigned capacity)
+Queue* createQueue()
 {
     Queue* queue = (Queue*)malloc(
         sizeof(Queue));
-    queue->capacity = capacity;
+    queue->capacity = 18;
     queue->front = queue->size = 0;
  
     // This is important, see the enqueue
-    queue->rear = capacity - 1;
+    queue->rear = 17;
     queue->array = (int*)malloc(
         queue->capacity * sizeof(int));
     return queue;

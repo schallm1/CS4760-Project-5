@@ -20,8 +20,8 @@
 #define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
 void shmInitialize(key_t, key_t, key_t);
-void request();
-void release();
+void request(FILE *);
+void release(FILE *);
 void semWait();
 void semPost();
 
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 {
     srand(time(NULL));
     //logfile
-    FILE *log = fopen("logfile", "w");
+    FILE *log = fopen("logfile1", "w");
     //get pid
     pid_t thisPID = getpid();
     //key declarations
@@ -65,8 +65,8 @@ int main(int argc, char *argv[])
     {
         semWait();
         localClock[1] += action;
-        request();
-        release();
+        request(log);
+        release(log);
         semPost();
         break;
     }
@@ -89,22 +89,15 @@ void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 }
 
 
-void request()
+void request(FILE * log)
 {
-    FILE *log = fopen("logfile", "w");
     pid_t thisPID = getpid();
     int requests = 0;
     for(int k = 0; k<resourceData[1]; k++)
     {
-        if (requests>=claims)
-        return;
-        else
-        {
             for(int l = 0; l<10; l++)
             {
-                if(requests>=claims)
-                return;
-                else if(resourceArray[k].instance[l].id!=0)
+                if(resourceArray[k].instance[l].id!=0)
                 {
                     enqueue(resourceArray[k].instance[l].pid, thisPID);
                     fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
@@ -113,15 +106,11 @@ void request()
                 else
                 break;
             }
-        }
     }
     for(int i = resourceData[1]; i <20; i++)
     {
-        //request cap reached
-        if (requests>=claims)
-            return;
         //not shareable, but has been assigned
-        else if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == true)
+        if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == true)
         {   
             continue;
         }
@@ -131,10 +120,8 @@ void request()
             resourceArray[i].beenShared = true;
             //loop through instances in resource class
             for(int j = 0; j<10; j++)
-            {   
-                if(requests>=claims)
-                return;
-                else if(resourceArray[i].instance[j].id!=0)
+            {  
+                if(resourceArray[i].instance[j].id!=0)
                 {
                     enqueue(resourceArray[i].instance[j].pid, thisPID);
                     fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, j, i);
@@ -147,9 +134,8 @@ void request()
     }
 }
 
-void release()
+void release(FILE *log)
 {
-    FILE *log = fopen("logfile", "w");
     pid_t thisPID = getpid();
     for(int k = 0; k<20; k++)
     {
