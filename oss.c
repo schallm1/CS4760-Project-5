@@ -59,16 +59,17 @@ int main()
     int status = 0;
 
     srand(time(0));
-
+    //initialize shared memory and data structures
     shmInitialize(keyClock, keyClasses, keyResourceData);
     initializeClasses();
+    //loop to initialize each user process
     for(int i = 0; i < 18; i++)
     {
         sys->clock[1]+= (rand() % 500) +1;
         if(sys->clock[1] >= 1000)
         {
-            sys->clock[0] += (sys->clock[1] % 1000);
-            sys->clock[1] = (sys->clock[1] - ((sys->clock[1] % 1000) * 1000));
+            sys->clock[0] += (sys->clock[1] / 1000);
+            sys->clock[1] = ((sys->clock[1] % 1000));
         }
         if((pid = fork()) == 0)
         {
@@ -76,9 +77,10 @@ int main()
         }
         fprintf(log, "Process %d has been dispatched for execution at time: %d seconds and %d miliseconds.\n", pid, sys->clock[0], sys->clock[1]);
     }
-
+    //wait for all processes to conclude
     while ((wpid = wait(&status)) > 0);
     fprintf(log, "Parent process is now terminating at time: %d seconds and %d miliseconds.\n", sys->clock[0], sys->clock[1]);
+    //cleanup
     shmDelete();
     semctl(semAddress, 0, IPC_RMID);
     fclose(log);

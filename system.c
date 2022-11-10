@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <sys/sem.h>
-#include "queue.c"
 
 #ifndef SYSTEM_H
 #define SYSTEM_H

@@ -19,27 +19,30 @@
 
 #define PERMS (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
 
+//prototypes
 void shmInitialize(key_t, key_t, key_t);
 void request(FILE *);
 void release(FILE *);
 void semWait();
 void semPost();
-
+//global shared memory
 static struct sembuf sop;
 ResourceClass *resourceArray;
 Clock *sys;
 int *resourceData;
-
+//global stack variables
+unsigned int localClock[2];
 int clockID;
 int classID;
 int resourceID;
 int claims;
+int requests = 0;
 int none = 0;
 int semAddress;
 
 int main(int argc, char *argv[])
 {
-    srand(time(NULL));
+    srand(time(NULL) +getpid());
     //logfile
     
     //get pid
@@ -62,29 +65,50 @@ int main(int argc, char *argv[])
 
     int place = (rand() % resourceData[1]) + 1;
     claims = place;
-    unsigned int localClock[2] = {sys->clock[0], sys->clock[1]};
+    localClock[0] = sys->clock[0];
+    localClock[1] = sys->clock[1];
     int bound = 400;
     int action = (rand() % bound) +1;
     localClock[1] += action;
     if(localClock[1] >= 1000)
         {
-            localClock[0] += (localClock[1] % 1000);
-            localClock[1] = (localClock[1] - ((localClock[1] % 1000) * 1000));
+            localClock[0] += (localClock[1] / 1000);
+            localClock[1] = (localClock[1] % 1000);
         }
+    //check for termination
+    if(action>=250)
+    {
+        int terminate = rand() % 2;
+        if(terminate == 0)
+        {
+            terminate = 0;
+        }
+        else if(terminate == 1)
+        {
+            fprintf(log, "Process %d is terminating prematurely at time: %d seconds and %d miliseconds.\n", thisPID, localClock[0], localClock[1]);
+            release(log);
+            exit(0);
+        }
+        
+    }
 
     while(1)
     {
+        //critical section  
         semWait();
         request(log);
+        action = (rand() % bound) +1;
+        localClock[1] += action;
         release(log);
         semPost();
         break;
     }
+    //update system clock
     sys->clock[1] += localClock[1];
     if(sys->clock[1] >= 1000)
     {
-        sys->clock[0] += (sys->clock[1] % 1000);
-        sys->clock[1] = (sys->clock[1] - ((sys->clock[1] % 1000) * 1000));
+        sys->clock[0] += (sys->clock[1] / 1000);
+        sys->clock[1] = (sys->clock[1] % 1000);
     }
     fprintf(log, "Process %d is now terminating at time: %d seconds and %d miliseconds.\n", thisPID, sys->clock[0], sys->clock[1]);
     fclose(log);
@@ -108,11 +132,13 @@ void shmInitialize(key_t keyClock, key_t keyClasses, key_t keyResourceData)
 void request(FILE * log)
 {
     pid_t thisPID = getpid();
-    int requests = 0;
+    //loop through and request valid resource instances and determine if they are in use, if not then queue up the process
+    //first for loop is shareable memory
     for(int k = 0; k<resourceData[1]; k++)
     {
             for(int l = 0; l<10; l++)
             {
+                //id>0 means valid instance
                 if(resourceArray[k].instance[l].id!=0)
                 {
                     for(int x = 0; x<18; x++)
@@ -128,13 +154,20 @@ void request(FILE * log)
                         }
                     }
                       
-                    fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
+                    fprintf(log, "Process %d's request for shared resource %d in class %d has been granted by master at time: %d seconds and %d miliseconds.\n", thisPID, l, k, localClock[0], localClock[1]);
                     requests++;
+                    if(requests>=claims)
+                    break;
                 }
                 else
                 break;
             }
+            if(requests>=claims)
+            break;
     }
+    if(requests>=claims)
+    return;
+    //non-shareable memory
     for(int i = resourceData[1]; i <20; i++)
     {
             //loop through instances in resource class
@@ -155,18 +188,29 @@ void request(FILE * log)
                         }
                     }
                     
-                    fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, j, i);
+                    fprintf(log, "Process %d's for non-shared resource %d in class %d has been granted by master at time: %d seconds and %d miliseconds.\n", thisPID, j, i, localClock[0], localClock[1]);
                     requests++;
+                    if(requests>=claims)
+                    {
+                        fprintf(log, "%d requests have been made in total by process %d.\n", requests, thisPID);
+                        return;
+                    }
+                    
                 }
-                else
-                break;
             }
-     }
+            if(requests>=claims)
+            {
+                fprintf(log, "%d requests have been made in total by process %d.\n", requests, thisPID);
+                return;
+            }
+    }
+    fprintf(log, "%d requests have been made in total by process %d.\n", requests, thisPID);
  }
 
 void release(FILE *log)
 {
     pid_t thisPID = getpid();
+    //loop through all classes and release resources currently allocated to this process
     for(int k = 0; k<20; k++)
     {
         for(int l = 0; l<10; l++)
@@ -182,7 +226,7 @@ void release(FILE *log)
                     resourceArray[k].instance[l].pidUsing = 0;
                 }
                 
-                fprintf(log, "Process %d has finished using resource %d in class %d.\n", thisPID, l, k);
+                fprintf(log, "Process %d has finished using resource %d in class %d at time: %d seconds and %d miliseconds.\n", thisPID, l, k, localClock[0], localClock[1]);
             }
             else
             break;

@@ -1,10 +1,10 @@
 
 all: oss user
 
-oss: oss.c queue.c system.c
+oss: oss.c system.c
 	gcc -g oss.c -o oss
 
-user: user.c queue.c system.c
+user: user.c system.c
 	gcc -g user.c -o user
 
 clean:
