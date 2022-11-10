@@ -15,6 +15,7 @@
 #include <sys/msg.h>
 #include <sys/stat.h>
 #include <sys/sem.h>
+#include <sys/mman.h>
 #include "system.c"
 
 //prototype
@@ -61,6 +62,8 @@ int main()
 
     shmInitialize(keyClock, keyClasses, keyResourceData);
     initializeClasses();
+    for(int i = 0; i < 18; i++)
+    {
         sys->clock[1]+= (rand() % 500) +1;
         if(sys->clock[1] >= 1000)
         {
@@ -71,12 +74,13 @@ int main()
         {
             execl("./user", "user", NULL);
         }
-        fprintf(log, "Process %d has been dispatched for execution.\n", pid);
+        fprintf(log, "Process %d has been dispatched for execution at time: %d seconds and %d miliseconds.\n", pid, sys->clock[0], sys->clock[1]);
+    }
 
     while ((wpid = wait(&status)) > 0);
+    fprintf(log, "Parent process is now terminating at time: %d seconds and %d miliseconds.\n", sys->clock[0], sys->clock[1]);
     shmDelete();
     semctl(semAddress, 0, IPC_RMID);
-    fprintf(log, "Parent process is now terminating.\n");
     fclose(log);
     exit(0);
 
@@ -131,7 +135,11 @@ void initializeClasses()
         for(int j = 0; j< pop; j++)
         {
             resourceArray[i].instance[j].id = j+1;
-            resourceArray[i].instance[j].pid = createQueue();
+            resourceArray[i].instance[j].pidUsing = 0;
+            for(int n = 0; n< 18; n++)
+            {
+                resourceArray[i].instance[j].pidArray[n] = 0;
+            }
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values
@@ -150,8 +158,12 @@ void initializeClasses()
         int pops = (rand() % 10) + 1;
         for(int y = 0; y < pops; y++)
         {
-            resourceArray[x].instance[y].id = y;
-            resourceArray[x].instance[y].pid = createQueue();
+            resourceArray[x].instance[y].id = y+1;
+            resourceArray[x].instance[y].pidUsing = 0;
+            for(int p=0; p<18; p++)
+            {
+                resourceArray[x].instance[y].pidArray[p] = 0;
+            }
             resourceData[0]++;
         }
         //fill up the rest of instance array with nullable values;

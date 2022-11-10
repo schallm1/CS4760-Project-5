@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <sys/sem.h>
 #include "queue.c"
 
 #ifndef SYSTEM_H
@@ -6,11 +7,11 @@
 
 #define MAX 10
 
-
 typedef struct
 {
     int id;
-    Queue* pid;
+    int pidUsing;
+    int pidArray[18];
 
 }Resource;
 

@@ -41,9 +41,14 @@ int main(int argc, char *argv[])
 {
     srand(time(NULL));
     //logfile
-    FILE *log = fopen("logfile1", "w");
+    
     //get pid
     pid_t thisPID = getpid();
+    char string[50] = "logfile.";
+    char string1[10] = "";
+    sprintf(string1, "%d", thisPID);
+    strcat(string, string1);
+    FILE *log = fopen(string, "w");
     //key declarations
     key_t keyClock = 4950;
     key_t keyClasses = 4951;
@@ -60,17 +65,28 @@ int main(int argc, char *argv[])
     unsigned int localClock[2] = {sys->clock[0], sys->clock[1]};
     int bound = 400;
     int action = (rand() % bound) +1;
+    localClock[1] += action;
+    if(localClock[1] >= 1000)
+        {
+            localClock[0] += (localClock[1] % 1000);
+            localClock[1] = (localClock[1] - ((localClock[1] % 1000) * 1000));
+        }
 
     while(1)
     {
         semWait();
-        localClock[1] += action;
         request(log);
         release(log);
         semPost();
         break;
     }
-    fprintf(log, "Process %d is now terminating.\n", thisPID);
+    sys->clock[1] += localClock[1];
+    if(sys->clock[1] >= 1000)
+    {
+        sys->clock[0] += (sys->clock[1] % 1000);
+        sys->clock[1] = (sys->clock[1] - ((sys->clock[1] % 1000) * 1000));
+    }
+    fprintf(log, "Process %d is now terminating at time: %d seconds and %d miliseconds.\n", thisPID, sys->clock[0], sys->clock[1]);
     fclose(log);
     exit(0);
 
@@ -99,7 +115,19 @@ void request(FILE * log)
             {
                 if(resourceArray[k].instance[l].id!=0)
                 {
-                    enqueue(resourceArray[k].instance[l].pid, thisPID);
+                    for(int x = 0; x<18; x++)
+                    {
+                        if(resourceArray[k].instance[l].pidArray[x] ==0)
+                        {
+                            resourceArray[k].instance[l].pidArray[x] = thisPID;
+                            if(resourceArray[k].instance[l].pidArray[0] == thisPID)
+                            {
+                                resourceArray[k].instance[l].pidUsing = thisPID;
+                            }
+                            break;
+                        }
+                    }
+                      
                     fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, l, k);
                     requests++;
                 }
@@ -109,30 +137,32 @@ void request(FILE * log)
     }
     for(int i = resourceData[1]; i <20; i++)
     {
-        //not shareable, but has been assigned
-        if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == true)
-        {   
-            continue;
-        }
-        //not shareable, but has not been assigned
-        else if(resourceArray[i].sharedStatus == false && resourceArray[i].beenShared == false)
-        {
-            resourceArray[i].beenShared = true;
             //loop through instances in resource class
             for(int j = 0; j<10; j++)
             {  
                 if(resourceArray[i].instance[j].id!=0)
                 {
-                    enqueue(resourceArray[i].instance[j].pid, thisPID);
+                    for(int x = 0; x<18; x++)
+                    {
+                        if(resourceArray[i].instance[j].pidArray[x] ==0)
+                        {
+                            resourceArray[i].instance[j].pidArray[x] = thisPID;
+                            if(resourceArray[i].instance[j].pidArray[0] == thisPID)
+                            {
+                                resourceArray[i].instance[j].pidUsing = thisPID;
+                            }
+                            break;
+                        }
+                    }
+                    
                     fprintf(log, "Process %d has been enqueued for resource %d in class %d.\n", thisPID, j, i);
                     requests++;
                 }
                 else
                 break;
             }
-        }
-    }
-}
+     }
+ }
 
 void release(FILE *log)
 {
@@ -141,9 +171,17 @@ void release(FILE *log)
     {
         for(int l = 0; l<10; l++)
         {
-            if(resourceArray[k].instance[l].pid->array[resourceArray[k].instance[l].pid->front] == thisPID)
+            if(resourceArray[k].instance[l].pidUsing==thisPID && resourceArray[k].instance[l].id != 0)
             {
-                thisPID = dequeue(resourceArray[k].instance[l].pid);
+                for(int i = 0; i < 17; i++)
+                {
+                    resourceArray[k].instance[l].pidArray[i] = resourceArray[k].instance[l].pidArray[i+1];
+                }
+                if(resourceArray[k].instance[l].pidArray[0] == 0)
+                {
+                    resourceArray[k].instance[l].pidUsing = 0;
+                }
+                
                 fprintf(log, "Process %d has finished using resource %d in class %d.\n", thisPID, l, k);
             }
             else
@@ -156,14 +194,14 @@ void release(FILE *log)
 
 void semWait()
 {
-    sop.sem_num = 1;
+    sop.sem_num = 0;
 	sop.sem_op = -1;
 	sop.sem_flg = 0;
     semop(semAddress, &sop, 1);
 }
 
 void semPost() {
-	sop.sem_num = 1;
+	sop.sem_num = 0;
 	sop.sem_op = 1;
 	sop.sem_flg = 0;
 	semop(semAddress, &sop, 1);
