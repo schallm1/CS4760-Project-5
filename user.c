@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     //check for termination
     if(action>=250)
     {
-        int terminate = rand() % 2;
+        int terminate = rand() % 4;
         if(terminate == 0)
         {
             terminate = 0;
